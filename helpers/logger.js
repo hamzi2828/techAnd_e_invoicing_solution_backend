@@ -1,4 +1,38 @@
 const winston = require('winston');
+const fs = require('fs');
+const path = require('path');
+
+const isServerless = !!(
+  process.env.AWS_LAMBDA_FUNCTION_NAME ||
+  process.env.LAMBDA_TASK_ROOT ||
+  process.env.VERCEL ||
+  process.env.NETLIFY
+);
+
+const transports = [
+  new winston.transports.Console({
+    format: winston.format.combine(
+      winston.format.colorize(),
+      winston.format.simple()
+    ),
+  }),
+];
+
+if (!isServerless) {
+  const logsDir = path.join(__dirname, '../logs');
+  if (!fs.existsSync(logsDir)) {
+    fs.mkdirSync(logsDir, { recursive: true });
+  }
+  transports.push(
+    new winston.transports.File({
+      filename: path.join(logsDir, 'error.log'),
+      level: 'error',
+    }),
+    new winston.transports.File({
+      filename: path.join(logsDir, 'combined.log'),
+    })
+  );
+}
 
 const logger = winston.createLogger({
   level: 'info',
@@ -11,29 +45,7 @@ const logger = winston.createLogger({
     winston.format.json()
   ),
   defaultMeta: { service: 'e-invoicing-backend' },
-  transports: [
-    new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize(),
-        winston.format.simple()
-      ),
-    }),
-    new winston.transports.File({ 
-      filename: 'logs/error.log', 
-      level: 'error' 
-    }),
-    new winston.transports.File({ 
-      filename: 'logs/combined.log' 
-    })
-  ],
+  transports,
 });
-
-// Create logs directory if it doesn't exist
-const fs = require('fs');
-const path = require('path');
-const logsDir = path.join(__dirname, '../logs');
-if (!fs.existsSync(logsDir)) {
-  fs.mkdirSync(logsDir);
-}
 
 module.exports = logger;
